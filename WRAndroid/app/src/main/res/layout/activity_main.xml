@@ -4,15 +4,34 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context="com.walterrivett.wrandroid.MainActivity">
+    tools:context="com.walterrivett.wrandroid.MainActivity"
+    android:background="#040404">
 
-    <TextView
-        android:layout_width="wrap_content"
+    <com.github.anastr.speedviewlib.RaySpeedometer
+        android:layout_margin="20dp"
+        android:id="@+id/raySpeedometer"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Hello World!"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintLeft_toLeftOf="parent"
-        app:layout_constraintRight_toRightOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:sv_withEffects="false"
+        app:sv_speedBackgroundColor="#00FFFFFF"
+        app:sv_rayColor="#00FFFFFF"
+        app:sv_degreeBetweenMark="1"
+        app:sv_markWidth="5dp"
+        app:sv_speedTextPosition="CENTER"
+        app:sv_maxSpeed="80"
+        app:sv_speedTextSize="50dp"
+        app:sv_speedTextColor="#ffcc00"
+        app:sv_unit="MPH"
+        app:sv_unitTextColor="#ffcc00"
+        app:sv_speedTextFormat="INTEGER"
+        app:sv_tickNumber="9"
+        app:sv_markColor="#6e6e6e"
+        app:sv_backgroundCircleColor="#040404"
+        app:sv_withTremble="false"
+        app:sv_indicatorColor="#ffcc00"
+        app:sv_lowSpeedColor="#ffcc00"
+        app:sv_mediumSpeedColor="#ffcc00"
+        app:sv_mediumSpeedPercent="87"
+        app:sv_unitUnderSpeedText="true"/>
 
 </android.support.constraint.ConstraintLayout>
