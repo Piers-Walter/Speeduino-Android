@@ -32,6 +32,16 @@
         app:sv_lowSpeedColor="#ffcc00"
         app:sv_mediumSpeedColor="#ffcc00"
         app:sv_mediumSpeedPercent="87"
-        app:sv_unitUnderSpeedText="true"/>
+        app:sv_unitUnderSpeedText="true" />
+
+    <ImageView
+        android:id="@+id/indicatorImage"
+        android:layout_width="130dp"
+        android:layout_height="150dp"
+        android:layout_marginStart="20dp"
+        android:src="@drawable/ic_turn_signals"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/raySpeedometer" />
+
 
 </android.support.constraint.ConstraintLayout>
