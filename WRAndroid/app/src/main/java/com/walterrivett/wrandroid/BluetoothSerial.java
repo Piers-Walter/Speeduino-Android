@@ -271,7 +271,7 @@ public class BluetoothSerial {
     }
 
     private class SerialReader extends Thread {
-        private static final int MAX_BYTES = 125;
+        private static final int MAX_BYTES = 4;
 
         byte[] buffer = new byte[MAX_BYTES];
 
