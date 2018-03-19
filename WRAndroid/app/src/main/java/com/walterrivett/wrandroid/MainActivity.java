@@ -3,6 +3,7 @@ package com.walterrivett.wrandroid;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.bluetooth.BluetoothDevice;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -19,22 +20,36 @@ import android.support.v4.content.LocalBroadcastManager;
 import android.support.v4.content.res.ResourcesCompat;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
 import android.view.animation.AccelerateDecelerateInterpolator;
 import android.view.animation.AlphaAnimation;
 import android.view.animation.Animation;
+import android.widget.ImageButton;
 import android.widget.ImageView;
+import android.widget.ProgressBar;
 import android.widget.Toast;
 
 import com.github.anastr.speedviewlib.RaySpeedometer;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.UUID;
+
+import si.inova.neatle.Neatle;
+import si.inova.neatle.monitor.Connection;
+import si.inova.neatle.monitor.ConnectionMonitor;
+import si.inova.neatle.monitor.ConnectionStateListener;
+import si.inova.neatle.operation.CharacteristicSubscription;
+import si.inova.neatle.operation.CharacteristicsChangedListener;
+import si.inova.neatle.operation.CommandResult;
+import si.inova.neatle.operation.Operation;
+import si.inova.neatle.source.InputSource;
 
 import static android.view.View.GONE;
 import static android.view.View.INVISIBLE;
 import static android.view.View.VISIBLE;
 
-public class MainActivity extends Activity {
+public class MainActivity extends Activity implements CharacteristicsChangedListener {
     LocationManager locationManager;
     LocationListener locationListener;
     RaySpeedometer speedometer;
@@ -46,13 +61,21 @@ public class MainActivity extends Activity {
     private ImageView indicatorImage;
     private ImageView neutralImage;
     private ImageView hiBeamImage;
-    private ImageView bluetoothImage;
 
-    private BroadcastReceiver bluetoothConnectReceiver;
-    private BroadcastReceiver bluetoothDisconnectReceiver;
-    private BroadcastReceiver bluetoothFailedReceiver;
+    private ImageButton unlockButton;
+    private ProgressBar unlockProgress;
 
-    private BluetoothSerial bluetoothSerial;
+    private boolean unlocked = false;
+
+
+    public static String TXRX_SERVICE_UUID = "0000FFE0-0000-1000-8000-00805F9B34FB";
+    public static String TXRX_UUID = "0000FFE1-0000-1000-8000-00805F9B34FB";
+    public static String BLE_MAC = "D0:5F:B8:3B:AA:CD";
+
+    public static String password = "BikeUnlockCode";
+
+    CharacteristicSubscription characteristicSubscription;
+    byte[] toSend;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -64,20 +87,22 @@ public class MainActivity extends Activity {
         indicatorImage = findViewById(R.id.indicatorImage);
         neutralImage = findViewById(R.id.neutralImage);
         hiBeamImage = findViewById(R.id.hiBeamImage);
-        bluetoothImage = findViewById(R.id.bluetoothIcon);
+
+        unlockButton = findViewById(R.id.unlockButton);
+        unlockProgress = findViewById(R.id.unlockProgress);
 
         locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
         locationListener = new speed();
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this,new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, kFineLocation);
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, kFineLocation);
             return;
         }
 
         locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, locationListener);
 
-        Typeface segmentFont = ResourcesCompat.getFont(this,R.font.dseg14modern_regular);
+        Typeface segmentFont = ResourcesCompat.getFont(this, R.font.dseg14modern_regular);
 
-        speedometer = (RaySpeedometer) findViewById(R.id.raySpeedometer);
+        speedometer = findViewById(R.id.raySpeedometer);
 
         speedometer.setSpeedTextTypeface(segmentFont);
         speedometer.setTextTypeface(segmentFont);
@@ -87,158 +112,83 @@ public class MainActivity extends Activity {
             @Override
             public void run() {
                 //Do something after 100ms
-                speedometer.speedTo(0f,1000);
+                speedometer.speedTo(0f, 1000);
             }
         }, 1300);
 
-        bluetoothSerial = new BluetoothSerial(this, new BluetoothSerial.MessageHandler() {
+        //Setup Bluetooth
+        UUID TXRX_SERVICE = UUID.fromString(TXRX_SERVICE_UUID);
+        UUID TXRX = UUID.fromString(TXRX_UUID);
+
+        ConnectionMonitor monitor =
+                Neatle.createConnectionMonitor(this, Neatle.getDevice(BLE_MAC));
+        monitor.setOnConnectionStateListener(new ConnectionStateListener() {
             @Override
-            public int read(int bufferSize, byte[] buffer) throws IOException, InterruptedException {
-                if(bluetoothSerial.connected) {
-                    Log.d("Bluetooth Handler", "Received Message");
-                    while(bufferSize!=4){
-                        Thread.sleep(10);
-                    }
-                    StringBuilder outputString = new StringBuilder();
-                    ByteArrayOutputStream output = new ByteArrayOutputStream();
-                    final byte[] outputBytes;
-
-                    int readByte;
-                    try {
-                        readByte = bluetoothSerial.read();
-                        while(readByte!=0xFF) {
-                            output.write(readByte);
-                            outputString.append(Integer.toHexString(readByte));
-                            outputString.append(",");
-                            readByte = bluetoothSerial.read();
-                        }
-                        output.write(0xFF);
-                        outputString.append(Integer.toHexString(0xFF));
-
-                        outputBytes = output.toByteArray();
-                        Log.d("Bluetooth Handler", "Message Hex: " + outputString);
-
-                        runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-                                try {
-                                    processBytes(outputBytes);
-                                } catch (IOException e) {
-                                    e.printStackTrace();
-                                }
-                            }
-                        });
-                    }catch (IOException e){
-                        Log.d("Serial Read", "Handling Disconnect");
-                        bluetoothSerial.close();
-                        bluetoothSerial.connect();
-                    }
-
-                }else{
-                    bluetoothSerial.connect();
+            public void onConnectionStateChanged(Connection connection, int newState) {
+                if(connection.isConnected()){
+                    // The device has connected
+                    Log.d("Main Activity","Connected to Device");
+                    unlockProgress.setVisibility(INVISIBLE);
+                    unlockButton.setVisibility(VISIBLE);
                 }
-
-                return 0;
-
             }
-        }, "Pi");
+        });
+        monitor.setKeepAlive(true);
+        monitor.start();
 
+        characteristicSubscription = Neatle.createSubscription(this, Neatle.getDevice(BLE_MAC), TXRX_SERVICE, TXRX);
+        characteristicSubscription.setOnCharacteristicsChangedListener(this);
+        characteristicSubscription.start();
 
-        setupBroadcastReceivers();
-
-        //Fired when connection is established and also fired when onResume is called if a connection is already established.
-        LocalBroadcastManager.getInstance(this).registerReceiver(bluetoothConnectReceiver, new IntentFilter(BluetoothSerial.BLUETOOTH_CONNECTED));
-        //Fired when the connection is lost
-        LocalBroadcastManager.getInstance(this).registerReceiver(bluetoothDisconnectReceiver, new IntentFilter(BluetoothSerial.BLUETOOTH_DISCONNECTED));
-        //Fired when connection can not be established, after 30 attempts.
-        LocalBroadcastManager.getInstance(this).registerReceiver(bluetoothFailedReceiver, new IntentFilter(BluetoothSerial.BLUETOOTH_FAILED));
-
-
-
-        bluetoothSerial.connect();
-        //Set bluetooth icon flashing
-        startBluetoothAnimation();
-
-    }
-
-    private void startBluetoothAnimation(){
-        Animation animation = new AlphaAnimation(1, 0);
-        animation.setDuration(1000);
-        animation.setInterpolator(new AccelerateDecelerateInterpolator());
-        animation.setRepeatCount(Animation.INFINITE);
-        animation.setRepeatMode(Animation.REVERSE);
-        bluetoothImage.startAnimation(animation);
-    }
-
-    private void setupBroadcastReceivers(){
-        bluetoothConnectReceiver = new BroadcastReceiver() {
+        BluetoothDevice device = Neatle.getDevice(BLE_MAC);
+        Operation operation = Neatle.createOperationBuilder(this).write(TXRX_SERVICE, TXRX, new InputSource() {
+            byte[] output;
+            int i=0;
             @Override
-            public void onReceive(Context context, Intent intent) {
-                //Called When Bluetooth Successfully connects
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        //Set Bluetooth icon to disappeared and set visibility of bike icons to invisible
-                        hiBeamImage.setVisibility(INVISIBLE);
-                        indicatorImage.setVisibility(INVISIBLE);
-                        neutralImage.setVisibility(INVISIBLE);
-                        bluetoothImage.clearAnimation();
-                        bluetoothImage.setVisibility(GONE);
-
-                    }
-                });
+            public void open() throws IOException {
+                output = toSend;
             }
-        };
 
-        bluetoothDisconnectReceiver = new BroadcastReceiver() {
             @Override
-            public void onReceive(Context context, Intent intent) {
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        //Set Bluetooth icon to disappeared and set visibility of bike icons to invisible
-                        hiBeamImage.setVisibility(GONE);
-                        indicatorImage.setVisibility(GONE);
-                        neutralImage.setVisibility(GONE);
-                        startBluetoothAnimation();
-                        bluetoothSerial.connect();
-                    }
-                });
+            public byte[] nextChunk() throws IOException {
+                byte[] nextOutput = output;
+                output = null;
+                return nextOutput;
             }
-        };
+
+            @Override
+            public void close() throws IOException {
+
+            }
+        }).build(device);
+
+        unlockButton.setOnClickListener(v ->{
+            toSend = password.getBytes();
+            operation.execute();
+        });
+
     }
 
-    private void processBytes(byte[] bytes) throws IOException {
-        if(bytes.length == 4 && bytes[3] == -1 /* 0xFF */){
-            Log.d("Process Bytes","Received Correct Byte Count");
-            //Indicators
-            if(bytes[0]==1){
-
-                showIndicators();
-
-
-
-            }else{
-                hideIndicators();
-            }
-
-            //Neutral
-            if(bytes[1]==1){
-                showNeutral();
-            }else{
-                hideNeutral();
-            }
-
-            //Hi-Beam
-            if(bytes[2]==1){
-                showHiBeam();
-            }else{
-                hideHiBeam();
-            }
+    private void processBytes(byte[] bytes){
+        if(bytes.length!=3){
+            return;
+        }
+        if(bytes[0]== 0){
+            hideNeutral();
         }else{
-            while(bluetoothSerial.available()>0){
-                bluetoothSerial.read();
-            }
+            showNeutral();
+        }
+
+        if(bytes[1] == 0){
+            hideIndicators();
+        }else{
+            showIndicators();
+        }
+
+        if(bytes[2] == 0){
+            hideHiBeam();
+        }else{
+            showHiBeam();
         }
     }
 
@@ -268,20 +218,26 @@ public class MainActivity extends Activity {
     private class speed implements LocationListener{
         @Override
         public void onLocationChanged(Location loc) {
-            Float thespeed=loc.getSpeed()*2.23694f;
-            speedometer.speedTo(thespeed,500);
+            try {
+                if(loc.hasSpeed()) {
+                    Float thespeed = loc.getSpeed() * 2.23694f;
+                    speedometer.speedTo(thespeed, 500);
+                }
+            }catch(Exception e){
+                e.printStackTrace();
+            }
         }
         @Override
         public void onProviderDisabled(String arg0) {
-            Toast.makeText(mContext, "onProviderDisabled",Toast.LENGTH_SHORT).show();
+            //Toast.makeText(mContext, "onProviderDisabled",Toast.LENGTH_SHORT).show();
         }
         @Override
         public void onProviderEnabled(String arg0) {
-            Toast.makeText(mContext, "onProvderEnabled", Toast.LENGTH_SHORT).show();
+            //Toast.makeText(mContext, "onProvderEnabled", Toast.LENGTH_SHORT).show();
         }
         @Override
         public void onStatusChanged(String arg0, int arg1, Bundle arg2) {
-            Toast.makeText(mContext, "onStatusChanged",Toast.LENGTH_SHORT).show();
+            //Toast.makeText(mContext, "onStatusChanged",Toast.LENGTH_SHORT).show();
         }
 
     }
@@ -302,5 +258,32 @@ public class MainActivity extends Activity {
 
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
 
+    }
+
+    @Override
+    public void onCharacteristicChanged(CommandResult change) {
+        if (change.wasSuccessful()) {
+
+            if(change.getValueAsString().equals("Unlocked")){
+                unlocked = true;
+                unlockProgress.setVisibility(INVISIBLE);
+                unlockButton.setImageDrawable(getResources().getDrawable(R.drawable.ic_lock_open_black_24dp));
+                new Handler().postDelayed(() ->{
+                    unlockButton.setVisibility(GONE);
+                },500);
+            }else {
+
+                //Received Byte Array
+                byte[] received = change.getValue();
+
+                if(unlocked) {
+                    processBytes(received);
+                }
+            }
+
+
+        } else {
+            Log.d("onCharac2","Received: " + change.getValueAsString());
+        }
     }
 }

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
@@ -12,54 +12,51 @@
         android:id="@+id/raySpeedometer"
         android:layout_width="300dp"
         android:layout_height="wrap_content"
-        android:layout_gravity="center"
         app:sv_backgroundCircleColor="#040404"
         app:sv_degreeBetweenMark="1"
-        app:sv_indicatorColor="#ffcc00"
-        app:sv_lowSpeedColor="#ffcc00"
+        app:sv_indicatorColor="@color/wrGold"
+        app:sv_lowSpeedColor="@color/wrGold"
         app:sv_markColor="#6e6e6e"
         app:sv_markWidth="5dp"
         app:sv_maxSpeed="80"
-        app:sv_mediumSpeedColor="#ffcc00"
+        app:sv_mediumSpeedColor="@color/wrGold"
         app:sv_mediumSpeedPercent="87"
         app:sv_rayColor="#00FFFFFF"
         app:sv_speedBackgroundColor="#00FFFFFF"
-        app:sv_speedTextColor="#ffcc00"
+        app:sv_speedTextColor="@color/wrGold"
         app:sv_speedTextFormat="INTEGER"
         app:sv_speedTextPosition="CENTER"
         app:sv_speedTextSize="50dp"
         app:sv_tickNumber="9"
         app:sv_unit="MPH"
-        app:sv_unitTextColor="#ffcc00"
+        app:sv_unitTextColor="@color/wrGold"
         app:sv_unitUnderSpeedText="true"
         app:sv_withEffects="false"
-        app:sv_withTremble="false" />
+        app:sv_withTremble="false"
+        android:layout_centerHorizontal="true"
+        android:layout_alignParentTop="true"/>
 
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal">
 
-        <ImageView
-            android:id="@+id/indicatorImage"
-            android:layout_width="match_parent"
-            android:layout_height="100dp"
-            android:layout_marginStart="20dp"
-            android:layout_weight="1"
-            android:src="@drawable/ic_turn_signals"
-            app:layout_constraintBottom_toBottomOf="@+id/textView"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/raySpeedometer"
-            android:visibility="gone"/>
+    <ImageView
+        android:id="@+id/indicatorImage"
+        android:layout_width="100dp"
+        android:layout_height="100dp"
+        android:layout_marginStart="20dp"
+        android:src="@drawable/ic_turn_signals"
+        android:visibility="invisible"
+        android:layout_alignParentEnd="true"
+        android:layout_below="@id/raySpeedometer"
+        android:layout_marginEnd="50dp"/>
 
-        <ImageView
-            android:id="@+id/neutralImage"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:src="@drawable/ic_neutral"
-            android:visibility="gone"/>
-    </LinearLayout>
+    <ImageView
+        android:id="@+id/neutralImage"
+        android:layout_width="100dp"
+        android:layout_height="100dp"
+        android:src="@drawable/ic_neutral"
+        android:visibility="invisible"
+        android:layout_alignParentStart="true"
+        android:layout_marginStart="50dp"
+        android:layout_below="@id/raySpeedometer"/>
 
     <ImageView
         android:id="@+id/hiBeamImage"
@@ -68,16 +65,30 @@
         android:layout_gravity="center"
         android:layout_marginTop="10dp"
         android:src="@drawable/ic_hi_beam"
-        android:visibility="gone"/>
+        android:visibility="invisible"
+        android:layout_centerHorizontal="true"
+        android:layout_below="@id/neutralImage"/>
 
-    <ImageView
+    <ProgressBar
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerHorizontal="true"
+        android:layout_below="@id/raySpeedometer"
+        android:id="@+id/unlockProgress"
+        android:visibility="visible"/>
+
+    <ImageButton
         android:layout_width="100dp"
         android:layout_height="100dp"
-        android:src="@drawable/ic_bluetooth_searching_black_24dp"
-        android:tint="#0000FF"
+        android:src="@drawable/ic_lock_outline_black_24dp"
+        android:tint="@color/wrGold"
+        android:background="#00FFFFFF"
         android:layout_gravity="center"
-        android:id="@+id/bluetoothIcon"
+        android:scaleType="fitCenter"
+        android:layout_below="@id/raySpeedometer"
+        android:layout_centerHorizontal="true"
+        android:id="@+id/unlockButton"
         android:visibility="invisible"/>
 
 
-</LinearLayout>
+</RelativeLayout>

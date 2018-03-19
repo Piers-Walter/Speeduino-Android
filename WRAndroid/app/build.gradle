@@ -17,6 +17,10 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+    compileOptions {
+        targetCompatibility 1.8
+        sourceCompatibility 1.8
+    }
 }
 
 dependencies {
@@ -29,6 +33,9 @@ dependencies {
 
     //Speedometer Library
     compile 'com.github.anastr:speedviewlib:1.1.7'
+
+    //Bluetooth LE Library
+    compile 'si.inova:neatle:0.9.4'
 
     testCompile 'junit:junit:4.12'
 }
