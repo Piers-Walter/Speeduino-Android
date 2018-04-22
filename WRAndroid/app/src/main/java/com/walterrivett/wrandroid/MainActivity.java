@@ -22,6 +22,7 @@ import android.support.v4.content.res.ResourcesCompat;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
+import android.view.WindowManager;
 import android.view.animation.AccelerateDecelerateInterpolator;
 import android.view.animation.AlphaAnimation;
 import android.view.animation.Animation;
@@ -82,6 +83,9 @@ public class MainActivity extends Activity implements CharacteristicsChangedList
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        //Keep screen on
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        // Lock to Landscaoe
         this.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
         setContentView(R.layout.activity_main);
 
@@ -128,11 +132,19 @@ public class MainActivity extends Activity implements CharacteristicsChangedList
         monitor.setOnConnectionStateListener(new ConnectionStateListener() {
             @Override
             public void onConnectionStateChanged(Connection connection, int newState) {
-                if(connection.isConnected()){
+                if (connection.isConnected()) {
                     // The device has connected
-                    Log.d("Main Activity","Connected to Device");
+                    Log.d("Main Activity", "Connected to Device");
                     unlockProgress.setVisibility(INVISIBLE);
                     unlockButton.setVisibility(VISIBLE);
+                }
+
+                if(!connection.isConnected()){
+                    unlockProgress.setVisibility(VISIBLE);
+                    unlockButton.setVisibility(INVISIBLE);
+                    hideHiBeam();
+                    hideIndicators();
+                    hideNeutral();
                 }
             }
         });
@@ -146,7 +158,8 @@ public class MainActivity extends Activity implements CharacteristicsChangedList
         BluetoothDevice device = Neatle.getDevice(BLE_MAC);
         Operation operation = Neatle.createOperationBuilder(this).write(TXRX_SERVICE, TXRX, new InputSource() {
             byte[] output;
-            int i=0;
+            int i = 0;
+
             @Override
             public void open() throws IOException {
                 output = toSend;
@@ -165,32 +178,32 @@ public class MainActivity extends Activity implements CharacteristicsChangedList
             }
         }).build(device);
 
-        unlockButton.setOnClickListener(v ->{
+        unlockButton.setOnClickListener(v -> {
             toSend = password.getBytes();
             operation.execute();
         });
 
     }
 
-    private void processBytes(byte[] bytes){
-        if(bytes.length!=3){
+    private void processBytes(byte[] bytes) {
+        if (bytes.length != 3) {
             return;
         }
-        if(bytes[0]== 0){
-            hideNeutral();
-        }else{
+        if (bytes[0] == 0) {
             showNeutral();
+        } else {
+            hideNeutral();
         }
 
-        if(bytes[1] == 0){
+        if (bytes[1] == 0) {
             hideIndicators();
-        }else{
+        } else {
             showIndicators();
         }
 
-        if(bytes[2] == 0){
+        if (bytes[2] == 0) {
             hideHiBeam();
-        }else{
+        } else {
             showHiBeam();
         }
     }
@@ -198,7 +211,8 @@ public class MainActivity extends Activity implements CharacteristicsChangedList
     private void showHiBeam() {
         hiBeamImage.setVisibility(VISIBLE);
     }
-    private void hideHiBeam(){
+
+    private void hideHiBeam() {
         hiBeamImage.setVisibility(INVISIBLE);
     }
 
@@ -206,10 +220,11 @@ public class MainActivity extends Activity implements CharacteristicsChangedList
         neutralImage.setVisibility(INVISIBLE);
     }
 
-    private void showIndicators(){
+    private void showIndicators() {
         indicatorImage.setVisibility(VISIBLE);
     }
-    private void hideIndicators(){
+
+    private void hideIndicators() {
         indicatorImage.setVisibility(INVISIBLE);
     }
 
@@ -218,26 +233,30 @@ public class MainActivity extends Activity implements CharacteristicsChangedList
     }
 
 
-    private class speed implements LocationListener{
+    private class speed implements LocationListener {
         @Override
         public void onLocationChanged(Location loc) {
             try {
-                if(loc.hasSpeed()) {
+                if (loc.hasSpeed()) {
+                    //Convert from m/s to mph
                     Float thespeed = loc.getSpeed() * 2.23694f;
                     speedometer.speedTo(thespeed, 500);
                 }
-            }catch(Exception e){
+            } catch (Exception e) {
                 e.printStackTrace();
             }
         }
+
         @Override
         public void onProviderDisabled(String arg0) {
             //Toast.makeText(mContext, "onProviderDisabled",Toast.LENGTH_SHORT).show();
         }
+
         @Override
         public void onProviderEnabled(String arg0) {
             //Toast.makeText(mContext, "onProvderEnabled", Toast.LENGTH_SHORT).show();
         }
+
         @Override
         public void onStatusChanged(String arg0, int arg1, Bundle arg2) {
             //Toast.makeText(mContext, "onStatusChanged",Toast.LENGTH_SHORT).show();
@@ -250,12 +269,12 @@ public class MainActivity extends Activity implements CharacteristicsChangedList
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
 
-        if(requestCode==kFineLocation){
-            if(grantResults.length>0 && grantResults[0]==PackageManager.PERMISSION_GRANTED){
+        if (requestCode == kFineLocation) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, locationListener);
             }
-        }else{
-            Toast.makeText(this,"This App Needs Location Permission to Work",Toast.LENGTH_LONG);
+        } else {
+            Toast.makeText(this, "This App Needs Location Permission to Work", Toast.LENGTH_LONG);
         }
     }
 
@@ -267,26 +286,103 @@ public class MainActivity extends Activity implements CharacteristicsChangedList
     public void onCharacteristicChanged(CommandResult change) {
         if (change.wasSuccessful()) {
 
-            if(change.getValueAsString().equals("Unlocked")){
+            if (change.getValueAsString().equals("Unlocked")) {
                 unlocked = true;
                 unlockProgress.setVisibility(INVISIBLE);
                 unlockButton.setImageDrawable(getResources().getDrawable(R.drawable.ic_lock_open_black_24dp));
-                new Handler().postDelayed(() ->{
+                new Handler().postDelayed(() -> {
                     unlockButton.setVisibility(GONE);
-                },500);
-            }else {
+                }, 500);
+            } else {
 
                 //Received Byte Array
                 byte[] received = change.getValue();
 
-                if(unlocked) {
+                if (unlocked) {
                     processBytes(received);
                 }
             }
 
 
         } else {
-            Log.d("onCharac2","Received: " + change.getValueAsString());
+            Log.d("onCharac2", "Received: " + change.getValueAsString());
         }
+    }
+
+    public void onPause() {
+        super.onPause();
+
+        locationManager.removeUpdates(locationListener);
+
+    }
+
+    public void onResume() {
+        super.onResume();
+
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
+        locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, locationListener);
+
+        //Setup Bluetooth
+        UUID TXRX_SERVICE = UUID.fromString(TXRX_SERVICE_UUID);
+        UUID TXRX = UUID.fromString(TXRX_UUID);
+
+        ConnectionMonitor monitor =
+                Neatle.createConnectionMonitor(this, Neatle.getDevice(BLE_MAC));
+        monitor.setOnConnectionStateListener(new ConnectionStateListener() {
+            @Override
+            public void onConnectionStateChanged(Connection connection, int newState) {
+                if (connection.isConnected()) {
+                    // The device has connected
+                    Log.d("Main Activity", "Connected to Device");
+                    unlockProgress.setVisibility(INVISIBLE);
+                    unlockButton.setVisibility(VISIBLE);
+                    unlockButton.setImageDrawable(getDrawable(R.drawable.ic_lock_outline_black_24dp));
+                }
+
+                if(!connection.isConnected()){
+                    unlockProgress.setVisibility(VISIBLE);
+                    unlockButton.setVisibility(INVISIBLE);
+                    hideHiBeam();
+                    hideIndicators();
+                    hideNeutral();
+                }
+            }
+        });
+        monitor.setKeepAlive(true);
+        monitor.start();
+
+        characteristicSubscription = Neatle.createSubscription(this, Neatle.getDevice(BLE_MAC), TXRX_SERVICE, TXRX);
+        characteristicSubscription.setOnCharacteristicsChangedListener(this);
+        characteristicSubscription.start();
+
+        BluetoothDevice device = Neatle.getDevice(BLE_MAC);
+        Operation operation = Neatle.createOperationBuilder(this).write(TXRX_SERVICE, TXRX, new InputSource() {
+            byte[] output;
+            int i = 0;
+
+            @Override
+            public void open() throws IOException {
+                output = toSend;
+            }
+
+            @Override
+            public byte[] nextChunk() throws IOException {
+                byte[] nextOutput = output;
+                output = null;
+                return nextOutput;
+            }
+
+            @Override
+            public void close() throws IOException {
+
+            }
+        }).build(device);
+
+        unlockButton.setOnClickListener(v -> {
+            toSend = password.getBytes();
+            operation.execute();
+        });
     }
 }
